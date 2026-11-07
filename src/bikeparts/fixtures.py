@@ -73,7 +73,8 @@ def boss_plate() -> bd.Part:
     boss = bd.Pos(12, 15, 0) * f.insert_boss("M4", 14)
     rib = bd.Pos(16, 15, t) * f.rib(25, 8, 1.6)  # tall end buried in the boss wall
     nut = bd.Pos(52, 15, t - 3.4) * f.captive_nut_pocket("M4")  # opens on the top face
-    return f.bed_chamfer(plate + boss + rib - nut)
+    pocket = bd.Pos(12, 15, 14) * f.insert_pocket("M4")  # merging refilled the boss's pocket
+    return f.bed_chamfer(plate + boss + rib - nut - pocket)
 
 
 @dataclass(frozen=True)

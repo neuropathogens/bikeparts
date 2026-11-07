@@ -37,8 +37,13 @@ caliper measurements.
 - **Parts 3 and 10 are one part.** A rear shipping spacer with a chain roller *is* a dummy hub.
 - **The chain roller runs on a PETG bushing, not a 608 bearing.** A 608's 8 mm bore can't sit
   coaxially on a 12 or 15 mm thru-axle, and backpedalling by hand doesn't need a bearing.
-- **Phase 1 (calibration coupon) is deferred.** Parts use the plan's default clearances. If a
-  fit is off on your printer, print the coupon (Phase 1) and rerun `uv run calibrate`.
+- **Phase 1 (calibration coupon) came after the first three parts**, which use the plan's
+  default clearances until someone runs `uv run calibrate` with coupon results.
+- **Coupon layout:** the Ø3/5/8 teardrop holes are on the key's block, not the plate, so a
+  drill shank goes straight through to air on both sides.
+- **Dovetail rail profile** (`interfaces/dovetail_rail.py`): 6 mm neck, 1.6 mm neck height,
+  3 mm of 45° flare, 1.2 mm vertical cap — 45° flanks print unsupported, and the neck and cap
+  keep every edge ≥ 90°.
 
 ## Check-suite changes made while building the parts
 
@@ -51,6 +56,12 @@ caliper measurements.
   the `thin_wall_cup` fixture still fails.
 - **Source comments may be multi-line**: the lint reads the whole comment block above a
   constant.
+
+## Bugs the checks couldn't see (caught by fit tests)
+
+- 2026-11-06: merging an `insert_boss` into a thicker body refilled the insert pocket — the
+  coupon would have printed without insert holes. Fixed with `features.insert_pocket()` cut
+  after merging; `calibration_coupon/test_part.py` probes every pocket.
 
 ## Still unverified (measure before trusting)
 
