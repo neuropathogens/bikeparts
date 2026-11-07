@@ -1,3 +1,7 @@
+# scikit-fem types mesh arrays as Optional and interpolations as plain tuples; at runtime they
+# are always set here. Relax those rules for this wrapper module only.
+# pyright: reportOptionalSubscript=false, reportAttributeAccessIssue=false
+# pyright: reportCallIssue=false, reportArgumentType=false
 """Gate 2: linear-static FEA screen (docs/PLAN.md Phase 3).
 
 Pipeline: build123d STEP → gmsh (run as a separate program; tets) → scikit-fem with
@@ -127,7 +131,9 @@ def mesh_shape(shape: bd.Shape, h: float, workdir: Path) -> MeshTet:
     return MeshTet(m.points[used].T, remap[tets].T)
 
 
-def solve_case(shape: bd.Shape, case: LoadCase, material: Material, h: float = DEFAULT_H) -> FeaResult:
+def solve_case(
+    shape: bd.Shape, case: LoadCase, material: Material, h: float = DEFAULT_H
+) -> FeaResult:
     if material.youngs_modulus_mpa is None or material.poisson_ratio is None:
         raise FeaError(f"{material.name} has no elastic constants")
     with tempfile.TemporaryDirectory() as tmp:
@@ -159,7 +165,7 @@ def solve_case(shape: bd.Shape, case: LoadCase, material: Material, h: float = D
             n /= np.linalg.norm(n)
 
             @BilinearForm
-            def spring(u, v, w, n=n):  # noqa: ANN001
+            def spring(u, v, w, n=n):
                 un = n[0] * u[0] + n[1] * u[1] + n[2] * u[2]
                 vn = n[0] * v[0] + n[1] * v[1] + n[2] * v[2]
                 return k_spring * un * vn
@@ -179,7 +185,7 @@ def solve_case(shape: bd.Shape, case: LoadCase, material: Material, h: float = D
         bc_vertices.append(np.unique(mesh.facets[:, facets]))
 
         @LinearForm
-        def load(v, w, traction=traction):  # noqa: ANN001
+        def load(v, w, traction=traction):
             return traction[0] * v[0] + traction[1] * v[1] + traction[2] * v[2]
 
         f += asm(load, FacetBasis(mesh, elem, facets=facets))

@@ -45,6 +45,30 @@ caliper measurements.
   3 mm of 45° flare, 1.2 mm vertical cap — 45° flanks print unsupported, and the neck and cap
   keep every edge ≥ 90°.
 
+## Phase 3 — FEA (Gate 2)
+
+- **Solver: scikit-fem, not CalculiX.** CalculiX isn't packaged for Homebrew or pip; gmsh
+  (meshing, run as a separate program) and scikit-fem (BSD, quadratic tets) both pip-install
+  on macOS and CI. `uv run fea` writes `parts/<part>/fea/results.json` + stress plots.
+- **What governs.** Peaks at the edges of idealised supports/loads grow without bound with
+  mesh refinement, so the governing von Mises stress is taken > 1.5 mm from any loaded or
+  supported face, and bearing (applied pressure, or *mean* contact pressure over a spring
+  support) is checked separately. Raw peaks and contact-edge pressures are still reported.
+  Contacts are modelled as normal-direction springs plus load-free 3-2-1 pins, not clamps.
+- **Mesh.** Coarse 1.2 mm + refined 0.55 mm. A study showed 0.8 mm was not converged.
+- **Materials are unverified** (typical PETG values), so Gate 2 is a screen until datasheet
+  values are entered.
+
+### Bar-end plug changes forced by Gate 2
+
+| Finding | Change |
+|---|---|
+| Washer bearing on the floor, SF 2.1 | M6 washer (Ø12 × 1.6) on the M5 bolt |
+| Only ~2.3 mm of roof over a captive nut, SF 0.7 | threaded wedge's short side 3 → 10 mm |
+| Hex-nut face crushing PETG in bearing, SF 1.3 | M5 heat-set insert instead of a nut |
+| Sharp inside corner at the shelf channel beside the bolt hole, SF ~2.5 (converged) — a rule-4 breach | 1.5 mm fillet on the channel floor edges → SF 4.4 |
+| Stress scales with preload | bolt torque 0.5 → 0.3 N·m (~180 N of friction grip remains) |
+
 ## Check-suite changes made while building the parts
 
 - **Label regions.** Rule 7 allows 0.4 mm debossed text; glyph ceilings and strokes would

@@ -74,6 +74,9 @@ Glass-transition figures are approximate typical values from memory; check the d
 - Labels: `features.deboss_text()` returns the cutter and its `ExemptRegion`; pass the region
   in `PrintBody.exempt` so overhang/min_wall skip only the glyphs.
 - Decisions and deviations from the plan go in `docs/DECISIONS.md`.
+- Gate 2: a part with a clamp or hanging load sets `PartSpec.load_cases` (its `loads.py`).
+  Model contacts as `Spring`s (normal direction) + load-free `Pin`s, not clamped faces;
+  clamps make false peaks. Check mesh convergence before trusting a pass.
 - A rule exception goes in `PartSpec.exceptions` (check name → reason) **and** in the part's
   README. The check then reports WAIVED instead of FAIL.
 - OEM interface dimensions (quarter-turn, 3-prong, brake pads) are never guessed: leave a
@@ -90,6 +93,7 @@ uv run check --fixture <name>   # a known-good/bad fixture (src/bikeparts/fixtur
 uv run check --self-test        # every fixture fails exactly its expected checks
 uv run build [--part <slug>]    # out/<part>/<preset>/<body>.step|stl|3mf|svg + READMEs
 uv run calibrate --dry-run ...  # coupon results → core/tolerances.py
+uv run fea [--part <slug>]      # Gate 2: parts/<slug>/fea/results.json + plots (slow: minutes)
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 ```
 

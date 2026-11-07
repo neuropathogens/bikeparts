@@ -6,13 +6,24 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 import numpy as np
-from dataclasses import dataclass
 
 from bikeparts.core.hardware import BOLTS, INSERTS, WASHER_M6_ON_M5
 from bikeparts.core.loads import LoadCase as FeaCase
-from bikeparts.core.loads import Pin, Spring, Support, Traction, both, cone_z, cylinder_z, fixed, half_space, plane_z
+from bikeparts.core.loads import (
+    Pin,
+    Spring,
+    Support,
+    Traction,
+    both,
+    cone_z,
+    cylinder_z,
+    fixed,
+    half_space,
+    plane_z,
+)
 from bikeparts.core.materials import MATERIALS, MaterialName
 
 # Set by Gate 2 FEA: at 0.5 N·m the threaded wedge's governing stress was SF ~2 (rule 7
@@ -126,7 +137,9 @@ def load_cases(p: object) -> list[FeaCase]:
                 ),
                 # the pull drives the wedge toward its tall side (+X), into the bar wall
                 Spring(
-                    both(cylinder_z(r_t, 0.0, WEDGE_SHORT_NUT + 2 * r_t), lambda x: x[0] > 0.7 * r_t),
+                    both(
+                        cylinder_z(r_t, 0.0, WEDGE_SHORT_NUT + 2 * r_t), lambda x: x[0] > 0.7 * r_t
+                    ),
                     (1.0, 0.0, 0.0),
                     "tall side against the bar wall",
                 ),
@@ -150,8 +163,10 @@ def load_cases(p: object) -> list[FeaCase]:
             body="body",
             supports=(
                 fixed(
-                    lambda x: cone_z(r_t, z_cone, r_f, z_cone + d["cone_h"])(x)
-                    | cylinder_z(r_t, 0.0, z_cone)(x),
+                    lambda x: (
+                        cone_z(r_t, z_cone, r_f, z_cone + d["cone_h"])(x)
+                        | cylinder_z(r_t, 0.0, z_cone)(x)
+                    ),
                     "seating cone and tube held by the bar",
                 ),
             ),

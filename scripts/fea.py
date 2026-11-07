@@ -21,7 +21,9 @@ from scripts.common import PARTS_SRC, select_parts
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="fea", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser(
+        prog="fea", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("--part", action="append", help="only this part slug (repeatable)")
     ap.add_argument("--quick", action="store_true", help="skip the refined-mesh run")
     args = ap.parse_args(argv)
@@ -88,7 +90,9 @@ def main(argv: list[str] | None = None) -> int:
                 f"{res.bearing:5.2f} (raw peak {res.raw_max_vm:5.2f}) MPa  SF {res.safety_factor:4.1f} "
                 f"[{res.n_tets} tets{delta}]  {time.perf_counter() - t0:.0f}s"
             )
-        (out_dir / "results.json").write_text(json.dumps(records, indent=2) + "\n", encoding="utf-8")
+        (out_dir / "results.json").write_text(
+            json.dumps(records, indent=2) + "\n", encoding="utf-8"
+        )
     print(
         f"\nGate 2: {'all cases SF ≥ ' + str(MIN_SAFETY_FACTOR) if not failed else str(failed) + ' case(s) failing'}"
         " — material values are typical, not your filament's datasheet (verified=False)."
