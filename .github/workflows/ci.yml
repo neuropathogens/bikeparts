@@ -1,0 +1,62 @@
+name: ci
+
+on:
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: OpenCascade runtime libraries
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglu1-mesa libxrender1
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - run: uv sync --frozen
+      - name: lint
+        run: uv run ruff check . && uv run ruff format --check .
+      - name: typecheck
+        run: uv run pyright
+      - name: tests
+        run: uv run pytest
+      - name: check fixtures (each check must catch what it should)
+        run: uv run check --self-test
+      - name: build
+        run: uv run build --clean
+      - name: check (Gate 1 on every part)
+        run: uv run check -q
+      - uses: actions/upload-artifact@v4
+        with:
+          name: out
+          path: out/
+          if-no-files-found: ignore
+
+  release:
+    needs: check
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: out
+          path: out
+      - name: zip one archive per part
+        run: |
+          mkdir -p dist
+          cd out
+          for d in */; do
+            part="${d%/}"
+            [ "$part" = fixtures ] && continue
+            zip -qr "../dist/${part}-${GITHUB_REF_NAME}.zip" "$part"
+          done
+          ls -la ../dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          fail_on_unmatched_files: true
