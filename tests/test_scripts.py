@@ -45,3 +45,44 @@ def test_check_one_part_is_green(out: Path) -> None:
 
 def test_self_test_passes(out: Path) -> None:
     assert check_all.main(["--self-test"]) == 0
+
+
+def test_calibrate_rewrites_only_the_block() -> None:
+    import argparse
+
+    from bikeparts.core import tolerances as tol
+    from scripts import calibrate
+
+    args = argparse.Namespace(
+        sliding=0.2,
+        press=0.1,
+        nut="tight",
+        nut_flats=None,
+        inserts="loose",
+        holes={3.0: 2.86, 5.0: 4.88, 8.0: 7.9},
+        dovetail=None,
+    )
+    new = calibrate.new_values(tol.PRINTER, args)
+    assert (new.sliding_fit, new.press_fit) == (0.2, 0.1)
+    assert new.nut_pocket_flats == pytest.approx(tol.PRINTER.nut_pocket_flats + 0.10)
+    assert new.insert_pocket_extra == pytest.approx(tol.PRINTER.insert_pocket_extra - 0.05)
+    assert new.bolt_hole_extra == pytest.approx(0.1)  # mean shrink 0.06 → rounded up to 0.10
+    src = Path(tol.__file__).read_text(encoding="utf-8")
+    out = calibrate.update_source(src, new, "calibrated test")
+    ns: dict[str, object] = {}
+    exec(compile(out, "tolerances_test.py", "exec"), ns)  # the rewritten file still runs
+    assert ns["PRINTER"].model_dump() == new.model_dump()  # type: ignore[attr-defined]
+    assert out.split("# --- calibrate:begin")[0] == src.split("# --- calibrate:begin")[0]
+
+
+def test_calibrate_rejects_press_looser_than_sliding() -> None:
+    import argparse
+
+    from bikeparts.core import tolerances as tol
+    from scripts import calibrate
+
+    args = argparse.Namespace(
+        sliding=0.1, press=0.2, nut=None, nut_flats=None, inserts=None, holes=None, dovetail=None
+    )
+    with pytest.raises(SystemExit):
+        calibrate.new_values(tol.PRINTER, args)
