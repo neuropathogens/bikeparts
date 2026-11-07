@@ -19,11 +19,11 @@ from typing import cast
 import build123d as bd
 
 from bikeparts.core import features as f
-from bikeparts.core.hardware import BOLTS, NUTS, WASHERS, next_bolt_length
+from bikeparts.core.hardware import BOLTS, WASHER_M6_ON_M5, next_bolt_length
 from bikeparts.core.materials import MaterialName
 from bikeparts.core.tolerances import PRINTER, check_wall
 from bikeparts.parts import Bodies, PartDoc, PartSpec, PrintBody
-from bikeparts.parts.bar_end_vault.loads import BOLT_TORQUE_NM, hand_check
+from bikeparts.parts.bar_end_vault.loads import BOLT_TORQUE_NM, hand_check, load_cases
 from bikeparts.parts.bar_end_vault.params import PRESETS, BarEndVaultParams, sweep
 
 _UP = (bd.Align.CENTER, bd.Align.CENTER, bd.Align.MIN)
@@ -36,10 +36,18 @@ LUG_ARC = 3.6  # mm, along the circumference
 FLANGE_H = 7.0
 CAP_T = 2.4
 CAP_WALL = 2.0
-# source: assumption — 3 mm short side on each wedge (no knife edge)
-WEDGE_SHORT = 3.0
+# source: assumption — 3 mm short side on the slot wedge (no knife edge). The nut wedge's
+# short side is taller: Gate 2 FEA showed 3 mm left only ~2.3 mm of roof over the downhill
+# half of a captive nut (SF 0.7), and a hex nut's small face overloaded the PETG in bearing
+# (SF 1.3) — so the threaded wedge now takes an M5 heat-set insert, which spreads the pull
+# along its knurled length.
+WEDGE_SHORT_SLOT = 3.0
+WEDGE_SHORT_NUT = 10.0  # FEA: ≥ 3.5 mm between the insert's end and the shelf channel
 # source: rule 3 — preferred shelf beside the hole's downhill breakout (≥ 1.2 mm wall)
 WEDGE_SHELF = 1.2
+# source: docs/PLAN.md structural rule 4 — 1.5 mm, between the 1.0 minimum and the 2.0 mm
+# called for "where FEA shows stress concentration" (limited by the 1.2 mm shelf width)
+CHANNEL_FILLET = 1.5
 # source: assumption — plan-view round on the slot wedge's notch mouth (rule 4 ≥ 1 mm)
 NOTCH_MOUTH_R = 1.2
 # source: assumption — Ø1.6 grip scallops round the cap rim
@@ -56,15 +64,19 @@ def dims(p: BarEndVaultParams) -> dict[str, float]:
     cone_h = (p.flange_diameter - tube_od) / 2
     top = p.insert_length + cone_h + FLANGE_H
     travel = p.bar_id_max - tube_od  # relative sideways travel the wedges must provide
-    wedge_h = WEDGE_SHORT + 1.5 * tube_od / 2  # rim cone meets the slope at x = r / 2
+    r = tube_od / 2
     return {
         "tube_od": tube_od,
         "core_d": core_d,
         "cone_h": cone_h,
         "top": top,
         "travel": travel,
-        "wedge_h": wedge_h,
-        "wedge_mid": WEDGE_SHORT + tube_od / 2,
+        # rim cone meets the slope at x = r / 2, so each wedge tops out at short + 1.5 r
+        "wedge_h_nut": WEDGE_SHORT_NUT + 1.5 * r,
+        "wedge_h_slot": WEDGE_SHORT_SLOT + 1.5 * r,
+        "mid_nut": WEDGE_SHORT_NUT + r,  # height of the slope on the axis
+        "mid_slot": WEDGE_SHORT_SLOT + r,
+        "stack": WEDGE_SHORT_NUT + WEDGE_SHORT_SLOT + tube_od,
         "spigot_od": core_d - 2 * PRINTER.sliding_fit,
     }
 
@@ -165,7 +177,7 @@ def build_cap(p: BarEndVaultParams) -> PrintBody:
 
 
 def wedge_shape(p: BarEndVaultParams, nut: bool) -> bd.Part:
-    """A cylinder cut by the 45° plane z = WEDGE_SHORT + (x + r), print-ready.
+    """A cylinder cut by the 45° plane z = short + (x + r), print-ready.
 
     Edge fixes so nothing is feathered (feathered PETG lips curl or chip and jam the slide):
     - the tall half's rim is trimmed by a 45° cone (a plain 45° cut leaves it acute);
@@ -179,7 +191,7 @@ def wedge_shape(p: BarEndVaultParams, nut: bool) -> bd.Part:
     """
     d = dims(p)
     r = d["tube_od"] / 2
-    ws = WEDGE_SHORT
+    ws = WEDGE_SHORT_NUT if nut else WEDGE_SHORT_SLOT
     bolt = BOLTS["M5"]
     a = bolt.clearance_diameter / 2
 
@@ -203,8 +215,9 @@ def wedge_shape(p: BarEndVaultParams, nut: bool) -> bd.Part:
 
     if nut:
         profile = cast(bd.Sketch, bd.Sketch() + bd.Circle(a))
-        w = w - f.captive_nut_pocket("M5")
         w = w - bd.Pos(0, 0, -1) * bd.extrude(profile, amount=60)
+        # heat-set insert pressed in from the flat (bed-side) face; the bolt pulls it deeper
+        w = w - bd.Rot(180, 0, 0) * f.insert_pocket("M5")
         x_arc = 0.0  # centre of the downhill end of the hole
         reach = _channel_reach(a, x_arc, r)
         z_s = ws + (x_arc - reach + r)  # slope height where the shelf meets it
@@ -214,7 +227,12 @@ def wedge_shape(p: BarEndVaultParams, nut: bool) -> bd.Part:
         channel = bd.Pos(x_arc, 0) * bd.Rectangle(
             2 * r + 2, 2 * reach, align=(bd.Align.MAX, bd.Align.CENTER)
         )
-        w = w - bd.Pos(0, 0, z_s) * bd.extrude(channel, amount=60)
+        cutter = bd.Pos(0, 0, z_s) * bd.extrude(channel, amount=60)
+        # Rule 4: round the channel's floor edges. Gate 2 FEA found the sharp inside corner
+        # where the floor meets the end wall beside the bolt hole governing the threaded wedge.
+        floor_edges = [e for e in cutter.edges() if abs(e.center().Z - z_s) < 1e-6]
+        cutter = f.as_part(cutter.fillet(CHANNEL_FILLET, floor_edges))  # pyright: ignore[reportAttributeAccessIssue]
+        w = w - cutter
     return f.bed_chamfer(w)
 
 
@@ -240,24 +258,27 @@ def build(p: BarEndVaultParams) -> Bodies:
 
 def bolt_length(p: BarEndVaultParams) -> float:
     d = dims(p)
-    return next_bolt_length(p.floor + 2 * d["wedge_mid"] + WASHERS["M5"].thickness)
+    # through the floor and the slot wedge, then the nut wedge's full height on the axis
+    return next_bolt_length(p.floor + d["mid_slot"] + d["mid_nut"] + WASHER_M6_ON_M5.thickness)
 
 
 def describe(p: BarEndVaultParams) -> PartDoc:
     d = dims(p)
-    cover = d["wedge_mid"] - NUTS["M5"].thickness - 0.2
-    hc = hand_check(p.floor, cover)
-    hc3 = hand_check(p.floor, cover, BOLT_TORQUE_NM * 1.25)
+    hc = hand_check(p.floor)
+    hc3 = hand_check(p.floor, BOLT_TORQUE_NM * 1.25)
     bl = bolt_length(p)
-    stack = 2 * WEDGE_SHORT + d["tube_od"]
+    stack = d["stack"]
     return PartDoc(
         hardware=[
             f"1 × M5 × {bl:g} socket head cap screw (ISO 4762)",
-            "1 × M5 hex nut (ISO 4032)",
-            "1 × M5 plain washer, Ø10 (ISO 7089 / DIN 125-A)",
+            "1 × M5 brass heat-set insert (M5 × 9.5 class, e.g. Ruthex RX-M5x9.5) — installed "
+            "with a soldering iron",
+            "1 × **M6** plain washer, Ø12 × 1.6 (ISO 7089 / DIN 125-A) — the wider face keeps "
+            "the floor's bearing stress inside the safety factor; an M5 washer does not",
         ],
         assembly=[
-            "Press the M5 nut into the hex pocket on the flat end of `wedge_nut`.",
+            "Melt the M5 heat-set insert into the hole on the flat end of `wedge_nut` with a "
+            "soldering iron (~230 °C for PETG), flush with the face, straight.",
             "Drop the washer and bolt into the body's core so the bolt pokes out of the inboard end.",
             "Slide `wedge_slot` sideways onto the bolt (it has an open notch), flat face against "
             "the body. Thread the bolt into `wedge_nut` with its slope facing `wedge_slot`: the "
@@ -265,8 +286,9 @@ def describe(p: BarEndVaultParams) -> PartDoc:
             "Turn the bolt until the stack holds together but is still the tube's diameter.",
             "Slide the plug into the bar until the cone seats on the bar end.",
             f"Tighten with a long-arm 4 mm hex key through the core to {BOLT_TORQUE_NM:g} N·m — "
-            "snug, fingertip force on a short hex key. The wedges slide apart and lock against "
-            "the bar wall. More torque does not hold better; it crushes the plastic.",
+            "just past snug: hold the key's long arm and turn with your fingertips until the plug "
+            "won't twist in the bar. The wedges slide apart and lock against the bar wall. More "
+            "torque does not hold better; it crushes the plastic.",
             "Fill the core (tubeless plugs, a reamer, a quick link) and twist the cap on a quarter "
             "turn until it clicks past the detent.",
         ],
@@ -277,11 +299,11 @@ def describe(p: BarEndVaultParams) -> PartDoc:
             "Bolt torque": f"{BOLT_TORQUE_NM:g} N·m (preload ≈ {hc['preload_n']:.0f} N)",
             "Hand check at design torque": (
                 f"washer punch-through {hc['floor_shear_mpa']:.1f} MPa (SF {hc['floor_sf']:.1f}); "
-                f"nut pull-through {hc['nut_shear_mpa']:.1f} MPa (SF {hc['nut_sf']:.1f}); "
+                f"insert pull-out {hc['insert_shear_mpa']:.1f} MPa (SF {hc['insert_sf']:.1f}); "
                 f"allowable {hc['allowable_shear_mpa']:.1f} MPa (unverified PETG values)"
             ),
             "Hand check at Gate 3 over-torque (+25 %)": (
-                f"SF {hc3['floor_sf']:.1f} floor, {hc3['nut_sf']:.1f} nut"
+                f"SF {hc3['floor_sf']:.1f} floor, {hc3['insert_sf']:.1f} insert"
             ),
         },
     )
@@ -313,16 +335,13 @@ PART = PartSpec(
     build=build,
     describe=describe,
     sweep=sweep,
-    fea=(
-        "Gate 2 applies (part 5). FEA pipeline is Phase 3 and has not run. The hand check in "
-        "the facts table covers bolt preload only; impact on the bar end is untested."
-    ),
+    load_cases=load_cases,
     gate3=("bolt_torque", "heat_soak", "ride_vibration", "drop"),
     assumptions=(
         "Bar ends are round inside and 17–21.5 mm across; internal routing ports sit deeper "
         "than ~70 mm.",
-        "0.5 N·m (≈ 500 N preload, ~150 N friction at μ ≈ 0.3) is enough to hold the plug; "
-        "Gate 3 tests will confirm.",
+        "0.3 N·m (≈ 300 N preload, ~180 N of friction grip at μ ≈ 0.3) is enough to hold the "
+        "plug; Gate 3 tests will confirm.",
         "The cap detent (bump 0.1 mm taller than the lug's play) gives a click on a printer "
         "close to the default tolerances; tune `detent_interference` if the cap is too loose "
         "or too stiff.",

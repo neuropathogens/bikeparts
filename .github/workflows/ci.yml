@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: OpenCascade runtime libraries
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglu1-mesa libxrender1
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libglu1-mesa libxrender1 libxcursor1 libxft2 libxinerama1
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
@@ -29,6 +29,8 @@ jobs:
         run: uv run build --clean --no-readme --no-slice
       - name: check (Gate 1 on every part)
         run: uv run check -q
+      - name: FEA screen (Gate 2, coarse mesh)
+        run: uv run fea --quick
       - uses: actions/upload-artifact@v4
         with:
           name: out

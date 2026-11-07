@@ -8,7 +8,8 @@ import pytest
 from bikeparts.parts.bar_end_vault.params import PRESETS, BarEndVaultParams
 from bikeparts.parts.bar_end_vault.part import (
     BOLTS,
-    WEDGE_SHORT,
+    WEDGE_SHORT_NUT,
+    WEDGE_SHORT_SLOT,
     bolt_length,
     build,
     dims,
@@ -62,7 +63,11 @@ def test_wedges_stack_into_a_cylinder(preset: str) -> None:
     bodies = build(p)
     r = dims(p)["tube_od"] / 2
     lower = bodies["wedge_nut"].shape
-    upper = bd.Pos(0, 0, 2 * WEDGE_SHORT + 2 * r) * bd.Rot(0, 180, 0) * bodies["wedge_slot"].shape
+    upper = (
+        bd.Pos(0, 0, WEDGE_SHORT_NUT + WEDGE_SHORT_SLOT + 2 * r)
+        * bd.Rot(0, 180, 0)
+        * bodies["wedge_slot"].shape
+    )
     assert _overlap(lower, upper) == pytest.approx(0.0, abs=1e-2)
     stack = lower + upper
     bb = stack.bounding_box()
@@ -81,7 +86,7 @@ def test_presets_cover_the_plan_range() -> None:
 
 
 def test_bolt_is_a_standard_length() -> None:
-    assert bolt_length(PRESETS["id-17-19.5"]) in (25.0, 30.0, 35.0)
+    assert bolt_length(PRESETS["id-17-19.5"]) in (30.0, 35.0, 40.0)
 
 
 def test_rejects_too_wide_a_range() -> None:
@@ -91,11 +96,10 @@ def test_rejects_too_wide_a_range() -> None:
 
 @pytest.mark.parametrize("preset", list(PRESETS))
 def test_hand_check_meets_rule_7_at_design_torque(preset: str) -> None:
-    from bikeparts.core.hardware import NUTS
     from bikeparts.core.materials import MIN_SAFETY_FACTOR
     from bikeparts.parts.bar_end_vault.loads import hand_check
 
     p = PRESETS[preset]
-    hc = hand_check(p.floor, dims(p)["wedge_mid"] - NUTS["M5"].thickness - 0.2)
+    hc = hand_check(p.floor)
     assert hc["floor_sf"] >= MIN_SAFETY_FACTOR
-    assert hc["nut_sf"] >= MIN_SAFETY_FACTOR
+    assert hc["insert_sf"] >= MIN_SAFETY_FACTOR

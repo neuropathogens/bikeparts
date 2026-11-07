@@ -6,6 +6,7 @@ source (part.py / params.py) and rebuild.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -37,6 +38,60 @@ def _slice_cell(r: BodyResult) -> tuple[str, str]:
     return f"{r.sliced.grams * r.target.qty:.0f} g", r.sliced.time + (
         f" (× {r.target.qty})" if r.target.qty > 1 else ""
     )
+
+
+def _fea_records(spec: PartSpec) -> list[dict[str, object]] | None:
+    path = PARTS_SRC / spec.slug / "fea" / "results.json"
+    if spec.load_cases is None or not path.exists():
+        return None
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _gate2_status(spec: PartSpec) -> str:
+    if spec.load_cases is None:
+        return spec.fea
+    recs = _fea_records(spec)
+    if not recs:
+        return "required — run `uv run fea`"
+    if all(r["passes"] for r in recs):
+        return (
+            "✅ all load cases SF ≥ 3 ([results](#gate-2-fea)) — a screen with typical, "
+            "unverified PETG values"
+        )
+    return "❌ failing ([results](#gate-2-fea))"
+
+
+def _gate2_section(spec: PartSpec) -> list[str]:
+    recs = _fea_records(spec)
+    if not recs:
+        return []
+    out = [
+        "### Gate 2: FEA",
+        "",
+        f"Linear static, quadratic tetrahedra (gmsh + scikit-fem), preset `{recs[0]['preset']}`. "
+        "Safety factor = design strength (PETG tensile × 0.5 interlayer knockdown, "
+        f"{recs[0]['design_strength_mpa']} MPa) ÷ the larger of the governing von Mises stress "
+        "(away from where loads and supports are applied) and the bearing pressure. Raw peaks "
+        "at load/support edges and contact-edge pressures are artifacts of idealised boundary "
+        "conditions — they're listed so Gate 3 knows where to look. Rerun with `uv run fea`.",
+        "",
+        "| Case | Governing von Mises | Bearing | SF | Mesh change | Raw peak | Contact edge peak |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for r in recs:
+        mark = "✅" if r["passes"] else "❌"
+        change = "—" if r["mesh_change_pct"] is None else f"{r['mesh_change_pct']:+.0f} %"
+        peak = r.get("contact_peak_mpa") or 0
+        out.append(
+            f"| `{r['case']}` | {r['max_von_mises_mpa']} MPa | {r['bearing_mpa']} MPa | "
+            f"{mark} {r['safety_factor']} | {change} | {r['raw_max_von_mises_mpa']} MPa | "
+            f"{peak if peak else '—'}{' MPa' if peak else ''} |"
+        )
+    out.append("")
+    for r in recs:
+        out += [f"**`{r['case']}`** — {r['description']}. Load source: {r['source']}.", ""]
+        out += [f"![{r['case']}](fea/{r['case']}.png)", ""]
+    return out
 
 
 def render(spec: PartSpec, results: dict[str, list[BodyResult]]) -> str:
@@ -166,7 +221,7 @@ def render(spec: PartSpec, results: dict[str, list[BodyResult]]) -> str:
         "|---|---|",
         f"| 1 — automated geometry checks | {'✅ all presets pass' if gate1_ok else '❌ failing'} "
         "(table below) |",
-        f"| 2 — FEA | {spec.fea} |",
+        f"| 2 — FEA | {_gate2_status(spec)} |",
         "| 3 — physical test | **Not yet tested.** Results will go in "
         f"[`test-reports/{spec.slug}/`](../../../../test-reports). |",
         "",
@@ -180,6 +235,8 @@ def render(spec: PartSpec, results: dict[str, list[BodyResult]]) -> str:
             cells = [_STATUS[c.status] for c in r.checks]
             out.append(f"| {preset} / `{r.target.body}` | " + " | ".join(cells) + " |")
     out.append("")
+
+    out += _gate2_section(spec)
 
     exempt = sorted({e.reason for rs in results.values() for r in rs for e in r.target.exempt})
     if exempt or spec.exceptions:

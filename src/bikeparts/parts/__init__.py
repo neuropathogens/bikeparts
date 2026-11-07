@@ -68,6 +68,8 @@ class PartSpec:
     # extra parameter sets covering the full range; each must build without kernel errors
     sweep: Callable[[], Iterable[BaseModel]] | None = None
     fea: str = "Not required (no clamp or hanging load)."
+    # Gate 2 load cases for a parameter set (core/loads.py); None = FEA not required
+    load_cases: Callable[[Any], list[Any]] | None = None
     assumptions: tuple[str, ...] = ()
     # Gate 3 tests that apply (keys of GATE3_TESTS in docs/PLAN.md's validation table)
     gate3: tuple[str, ...] = ()

@@ -180,6 +180,7 @@ class Washer(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     thread: Thread
+    inner_diameter: float
     outer_diameter: float
     thickness: float
     source: str
@@ -189,8 +190,19 @@ class Washer(BaseModel):
 WASHERS: dict[Thread, Washer] = {
     "M5": Washer(
         thread="M5",
+        inner_diameter=5.3,
         outer_diameter=10.0,
         thickness=1.0,
-        source="ISO 7089 (DIN 125-A) plain washer M5: Ø10 × 1 mm",
+        source="ISO 7089 (DIN 125-A) plain washer M5: Ø5.3 / Ø10 × 1 mm",
     ),
 }
+
+# An M6 plain washer on an M5 bolt: the common trick for a wider bearing face where an M5
+# "large" washer (Ø15) won't fit.
+WASHER_M6_ON_M5 = Washer(
+    thread="M5",
+    inner_diameter=6.4,
+    outer_diameter=12.0,
+    thickness=1.6,
+    source="ISO 7089 (DIN 125-A) plain washer M6: Ø6.4 / Ø12 × 1.6 mm, used on an M5 bolt",
+)
