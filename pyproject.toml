@@ -46,7 +46,9 @@ extend-exclude = ["out", "site"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
-ignore = ["RUF001", "RUF002", "RUF003"]  # allow ×, °, Ø in strings/comments
+# RUF001-3: allow ×, °, Ø in strings/comments. E501: `ruff format` owns line length; what it
+# can't wrap is prose inside string literals (README text), which stays readable as-is.
+ignore = ["RUF001", "RUF002", "RUF003", "E501"]
 
 [tool.pyright]
 include = ["src", "checks", "scripts", "tests"]

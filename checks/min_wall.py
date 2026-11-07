@@ -23,29 +23,39 @@ MAX_THIN_AREA_MM2 = 0.5
 _OFFSET = 1e-4
 
 
+# A hit on a triangle nearly parallel to the ray is a graze along the face next to the
+# sample's edge (tessellation chords sit a hair inside the true surface), not a wall.
+GRAZE_COS = 0.25  # ≈ 14.5°: real thin walls are hit near head-on (or at 45° in a wedge)
+
+
 def measure(mesh: trimesh.Trimesh, samples: int = SAMPLES, seed: int = 0) -> np.ndarray:
-    """Return (points, thickness) sampled over the mesh; thickness is inf on a miss."""
+    """Return rows of (x, y, z, thickness) sampled over the mesh; thickness is inf on a miss."""
     sampled = trimesh.sample.sample_surface(mesh, samples, seed=seed)
     pts, tri_idx = np.asarray(sampled[0]), np.asarray(sampled[1])
     normals = mesh.face_normals[tri_idx]
     origins = pts - normals * _OFFSET
     dirs = -normals
-    hits = mesh.ray.intersects_location(origins, dirs, multiple_hits=False)
-    locs, ray_idx = np.asarray(hits[0]), np.asarray(hits[1])
+    hits = mesh.ray.intersects_location(origins, dirs, multiple_hits=True)
+    locs, ray_idx, hit_tri = np.asarray(hits[0]), np.asarray(hits[1]), np.asarray(hits[2])
     thick = np.full(len(pts), np.inf)
     if len(ray_idx):
+        facing = np.abs(np.einsum("ij,ij->i", dirs[ray_idx], mesh.face_normals[hit_tri]))
+        ok = facing >= GRAZE_COS
         d = np.linalg.norm(locs - origins[ray_idx], axis=1) + _OFFSET
-        np.minimum.at(thick, ray_idx, d)
+        np.minimum.at(thick, ray_idx[ok], d[ok])
     return np.column_stack([pts, thick])
 
 
 def check(body: Body, min_wall: float = MIN_WALL) -> CheckResult:
     m = body.mesh
     data = measure(m)
+    keep = ~body.exempt_points(name, data[:, :3])
+    data = data[keep]
     thick = data[:, 3]
     hit = np.isfinite(thick)
     thin = hit & (thick < min_wall - THICKNESS_EPS)
-    thin_area = float(thin.sum()) / len(thick) * float(m.area)
+    # each kept sample still represents total_area / SAMPLES of surface
+    thin_area = float(thin.sum()) / len(keep) * float(m.area)
     tmin = float(thick[hit].min()) if hit.any() else float("nan")
     at = data[np.argmin(np.where(hit, thick, np.inf)), :3]
     details = {
@@ -53,6 +63,7 @@ def check(body: Body, min_wall: float = MIN_WALL) -> CheckResult:
         "thin_area_mm2": round(thin_area, 2),
         "samples": len(thick),
         "misses": int((~hit).sum()),
+        "exempt_samples": int((~keep).sum()),
         "thinnest_at": [round(float(x), 2) for x in at],
         "threshold_mm": min_wall,
     }

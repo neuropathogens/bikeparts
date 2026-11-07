@@ -98,9 +98,13 @@ def _module_constants_missing_source(path: Path) -> list[str]:
             continue
         if not isinstance(value.value, int | float) or isinstance(value.value, bool):
             continue
-        here = lines[node.lineno - 1]
-        above = lines[node.lineno - 2] if node.lineno > 1 else ""
-        if "source:" not in here and "source:" not in above:
+        # the constant's own line plus the contiguous comment block directly above it
+        block = [lines[node.lineno - 1]]
+        i = node.lineno - 2
+        while i >= 0 and lines[i].lstrip().startswith("#"):
+            block.append(lines[i])
+            i -= 1
+        if not any("source:" in line for line in block):
             missing.append(f"{path.name}:{node.lineno} {names[0]}")
     return missing
 

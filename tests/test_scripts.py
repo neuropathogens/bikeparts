@@ -19,7 +19,12 @@ def out(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 
 
 def test_build_exports_all_formats(out: Path) -> None:
-    assert build_all.main(["--fixture", "teardrop_hole_6"]) == 0
+    assert (
+        build_all.main(
+            ["--part", "bar_end_vault", "--no-slice", "--no-readme", "--fixture", "teardrop_hole_6"]
+        )
+        == 0
+    )
     d = out / "fixtures" / "teardrop_hole_6" / "default"
     for ext in ("step", "stl", "3mf", "svg"):
         assert (d / f"body.{ext}").stat().st_size > 0
@@ -34,8 +39,8 @@ def test_check_exit_codes(out: Path) -> None:
     assert (out / "check-report.json").exists()
 
 
-def test_check_with_no_parts_is_green(out: Path) -> None:
-    assert check_all.main([]) == 0
+def test_check_one_part_is_green(out: Path) -> None:
+    assert check_all.main(["--part", "bar_end_vault", "-q"]) == 0
 
 
 def test_self_test_passes(out: Path) -> None:

@@ -136,3 +136,82 @@ BOTTLE_BOSSES = BottleBosses(
     thread="M5",
     source="Industry-nominal 64 mm M5 bottle-cage bosses (docs/PLAN.md part 2); caliper-verify",
 )
+
+
+# --------------------------------------------------------------------------- trackers
+
+
+class Tracker(Sourced):
+    diameter: float
+    thickness: float
+
+
+AIRTAG = Tracker(
+    name="Apple AirTag",
+    diameter=31.9,
+    thickness=8.0,
+    source="Apple AirTag technical specifications: Ø31.9 mm × 8.0 mm (docs/PLAN.md part 2)",
+    verified=True,
+)
+
+# Raised flange of a bottle-boss rivnut on the tube surface. The spacer recesses around it.
+# source: assumption — typical M5 rivnut flange is under Ø10 × 1 mm; caliper-verify on a frame
+RIVNUT_FLANGE_DIAMETER = 10.0
+# source: assumption — see RIVNUT_FLANGE_DIAMETER
+RIVNUT_FLANGE_HEIGHT = 1.2
+
+
+# --------------------------------------------------------------------------- bar ends
+
+
+class BarInner(Sourced):
+    min_id: float
+    max_id: float
+
+
+BAR_END_ID = BarInner(
+    name="Handlebar end inner diameter",
+    min_id=17.0,
+    max_id=21.0,
+    source=(
+        "docs/PLAN.md part 5 (bar ID 17–21 mm covers common alloy and carbon flat/riser and "
+        "drop bars) — caliper-verify on the bars in the shop"
+    ),
+)
+
+
+# --------------------------------------------------------------------------- chain
+
+
+class Chain(Sourced):
+    pitch: float
+    roller_diameter: float
+    max_outer_width: float  # widest common derailleur chain (8-speed)
+
+
+CHAIN = Chain(
+    name="Derailleur bicycle chain",
+    pitch=12.7,  # 1/2 in pitch, ISO 606 bicycle chain
+    roller_diameter=7.75,
+    max_outer_width=7.3,
+    source=(
+        "Pitch 1/2 in (ISO 606); roller Ø ~7.75 mm and 8-speed outer width ~7.3 mm are "
+        "typical values from memory — UNVERIFIED, caliper-check a chain"
+    ),
+)
+
+
+# --------------------------------------------------------------------------- dropouts
+
+# 12×142 and 12×148 hubs have end caps that sit in recesses in the dropouts, so the
+# frame's inner dropout spacing is OLD − 2 × this.
+# source: assumption from memory (Syntace X-12 style: 142 hub in 135 mm spacing) — UNVERIFIED,
+# measure inner dropout spacing on a 142 and a 148 frame before trusting it
+THRU_AXLE_ENDCAP_RECESS = 3.5
+# How far a QR axle end may stick into the dropout slot without bottoming the skewer.
+# source: assumption — kept under the thinnest common rear dropout; caliper-verify
+QR_AXLE_STUB = 3.0
+# Smallest cog's chain centreline, inboard of the drive-side dropout inner face.
+# source: assumption — riders shift to the smallest cog before pulling the wheel; ~7 mm on
+# common road/MTB cassettes, caliper-verify
+SMALLEST_COG_INBOARD = 7.0

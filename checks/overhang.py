@@ -37,10 +37,15 @@ def check(body: Body) -> CheckResult:
     regions: list[dict[str, object]] = []
     bridges: list[dict[str, object]] = []
     exempt_small_holes = 0
+    exempt_label_faces = 0
     limit = math.radians(MAX_OVERHANG_DEG + ANGLE_EPS_DEG)
 
     for face in body.shape.faces():
         if is_bed_face(face):
+            continue
+        fbb = face.bounding_box()
+        if body.exempt_box(name, fbb.min, fbb.max):
+            exempt_label_faces += 1
             continue
         cyl = cylinder_info(face)
         if (
@@ -97,6 +102,7 @@ def check(body: Body) -> CheckResult:
         "regions": regions,
         "bridges": bridges,
         "exempt_small_holes": exempt_small_holes,
+        "exempt_label_faces": exempt_label_faces,
     }
     if flagged_area > 0:
         return CheckResult(

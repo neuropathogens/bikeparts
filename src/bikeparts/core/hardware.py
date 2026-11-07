@@ -161,3 +161,36 @@ BEARING_608 = Bearing(
     width=7.0,
     source="ISO 15 deep-groove ball bearing, series 60, bore code 8 (8×22×7)",
 )
+
+
+# ISO 4762 preferred nominal lengths for M3–M5 socket head cap screws.
+# source: ISO 4762 length series (preferred lengths, mm)
+BOLT_LENGTHS: tuple[float, ...] = (6, 8, 10, 12, 16, 20, 25, 30, 35, 40, 45, 50)
+
+
+def next_bolt_length(needed: float) -> float:
+    """Shortest ISO 4762 preferred length ≥ `needed`."""
+    for length in BOLT_LENGTHS:
+        if length >= needed - 1e-9:
+            return float(length)
+    raise ValueError(f"no standard bolt length ≥ {needed:.1f} mm")
+
+
+class Washer(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
+    thread: Thread
+    outer_diameter: float
+    thickness: float
+    source: str
+    verified: bool = True
+
+
+WASHERS: dict[Thread, Washer] = {
+    "M5": Washer(
+        thread="M5",
+        outer_diameter=10.0,
+        thickness=1.0,
+        source="ISO 7089 (DIN 125-A) plain washer M5: Ø10 × 1 mm",
+    ),
+}
