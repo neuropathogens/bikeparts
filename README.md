@@ -11,15 +11,27 @@ automated geometry checks, FEA (where it carries load) and a physical test befor
 
 Plan and design rules: [docs/PLAN.md](docs/PLAN.md) · agent conventions: [CLAUDE.md](CLAUDE.md)
 
+## Parts
+
+| Part | What it does | Sizes | Material | Status |
+|---|---|---|---|---|
+| [Ghost tracker spacer](src/bikeparts/parts/tracker_spacer/) | Hides an AirTag between frame and bottle cage, sealed until both come off | tubes Ø28.6–50 | PETG (+ optional TPU pad) | Gate 1 ✅ · Gate 3 pending |
+| [Vault bar-end plug](src/bikeparts/parts/bar_end_vault/) | Wedge-locking bar plug with a twist-lock core for a tubeless kit | bar ID 17–21.5 (2 sizes) | PETG | Gate 1 ✅ · Gates 2–3 pending |
+| [Shop dummy hub](src/bikeparts/parts/dummy_hub/) | Shipping spacer + chain keeper: holds the dropouts, spins the chain with the wheel out | 8 axle standards | PETG | Gate 1 ✅ · Gate 3 pending |
+
+Each part's README has drawings, print settings with real grams and print times, hardware,
+assembly steps, and its validation status. **None has passed physical testing yet (Gate 3).**
+Choices and deviations from the plan: [docs/DECISIONS.md](docs/DECISIONS.md).
+
 ## Status
 
 | Phase | | |
 |---|---|---|
 | 0 | Scaffold: core modules, check suite, CI | ✅ |
-| 1 | Calibration coupon | — |
-| 2 | Wave 1: shipping spacers, tracker spacer, Spine mount | — |
+| 1 | Calibration coupon | deferred (defaults used) |
+| 2+ | Ghost tracker spacer, Vault bar-end plug, Shop dummy hub | ✅ designed, Gate 1 |
 | 3 | FEA pipeline | — |
-| 4–5 | Waves 2–3 | — |
+| 4–5 | Remaining parts | — |
 | 6 | v1.0 release and catalog site | — |
 
 ## Quick start
@@ -30,6 +42,7 @@ uv run pytest                          # unit tests
 uv run check --self-test               # proves every check catches its defect
 uv run check --fixture overhang_cube_60
 uv run build                           # out/<part>/<preset>/<body>.{step,stl,3mf,svg}
+                                       # + slices (PrusaSlicer) and regenerates part READMEs
 uv run check                           # Gate 1 on every part
 ```
 
@@ -44,6 +57,7 @@ uv run check                           # Gate 1 on every part
 | `hole_orientation` | a horizontal hole > 3 mm whose top is round (must be a teardrop or diamond) |
 
 A part may waive a check only with a written reason in `PartSpec.exceptions` and its README.
+Debossed labels (rule 7) are declared as exempt regions and listed in the README.
 
 ## Layout
 
