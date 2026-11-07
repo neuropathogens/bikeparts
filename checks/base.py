@@ -16,6 +16,8 @@ import build123d as bd
 import numpy as np
 import trimesh
 
+from bikeparts.core.features import ExemptRegion
+
 # Linear tessellation tolerance (mm) shared by every mesh-based check and STL export.
 MESH_TOLERANCE = 0.01
 MESH_ANGULAR_TOLERANCE = 0.1  # radians
@@ -43,6 +45,19 @@ class CheckResult:
 class Body:
     name: str
     shape: bd.Part | bd.Solid | bd.Compound
+    exempt: tuple[ExemptRegion, ...] = ()
+
+    def exempt_box(self, check: str, lo: bd.Vector, hi: bd.Vector) -> bool:
+        return any(check in r.checks and r.contains_box(lo, hi) for r in self.exempt)
+
+    def exempt_points(self, check: str, pts: np.ndarray) -> np.ndarray:
+        """Boolean mask of points inside a region exempt from `check`."""
+        mask = np.zeros(len(pts), dtype=bool)
+        for r in self.exempt:
+            if check in r.checks:
+                lo, hi = np.array(r.lo) - 1e-3, np.array(r.hi) + 1e-3
+                mask |= np.all((pts >= lo) & (pts <= hi), axis=1)
+        return mask
 
     @cached_property
     def mesh(self) -> trimesh.Trimesh:

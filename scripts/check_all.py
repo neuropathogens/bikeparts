@@ -43,8 +43,8 @@ def _sweep(specs: list) -> int:
         for params in spec.sweep():
             n += 1
             try:
-                for body, shape in spec.build(params).items():
-                    if not shape.is_valid or len(shape.solids()) != 1:
+                for body, pb in spec.build(params).items():
+                    if not pb.shape.is_valid or len(pb.shape.solids()) != 1:
                         raise ValueError(f"{body}: invalid or not a single solid")
             except Exception as exc:
                 failed += 1
@@ -74,7 +74,7 @@ def main(argv: list[str] | None = None) -> int:
     report: dict[str, list[dict[str, object]]] = {}
     failures = 0
     for t in targets:
-        results = run_checks(Body(t.body, t.shape), t.exceptions)
+        results = run_checks(Body(t.body, t.shape, t.exempt), t.exceptions)
         _print_results(t, results, verbose=not args.quiet)
         failures += sum(not r.ok for r in results)
         report[t.label] = [

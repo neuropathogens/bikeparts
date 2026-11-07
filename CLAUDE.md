@@ -64,8 +64,14 @@ Glass-transition figures are approximate typical values from memory; check the d
 - Materials are all `verified=False` until real datasheet values are entered; Phase 3 FEA
   must refuse unverified materials.
 - A part is `src/bikeparts/parts/<slug>/` with `params.py`, `part.py` (exposes
-  `PART = PartSpec(...)`), `loads.py` (if FEA applies), generated `README.md`, `test_part.py`.
-  `PartSpec.build(params)` returns `{body name: solid}`, each body one printable solid on Z = 0.
+  `PART = PartSpec(...)`), `loads.py` (if FEA applies), generated `README.md` + `drawings/`,
+  `test_part.py` (virtual-assembly fit tests: build the bodies, place them as assembled,
+  assert zero overlap where they must clear and overlap where they must stop).
+  `PartSpec.build(params)` returns `{body name: PrintBody}` — one printable solid on Z = 0 with
+  its material, quantity, slicer overrides and any rule-7 label `ExemptRegion`s.
+- Labels: `features.deboss_text()` returns the cutter and its `ExemptRegion`; pass the region
+  in `PrintBody.exempt` so overhang/min_wall skip only the glyphs.
+- Decisions and deviations from the plan go in `docs/DECISIONS.md`.
 - A rule exception goes in `PartSpec.exceptions` (check name → reason) **and** in the part's
   README. The check then reports WAIVED instead of FAIL.
 - OEM interface dimensions (quarter-turn, 3-prong, brake pads) are never guessed: leave a

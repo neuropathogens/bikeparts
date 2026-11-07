@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal, cast
 
 import build123d as bd
@@ -22,6 +23,9 @@ MIN_INSIDE_FILLET = 1.0
 # source: docs/PLAN.md print rule 2 (teardrop any horizontal hole over 3 mm)
 TEARDROP_THRESHOLD = 3.0
 _SQRT2 = math.sqrt(2.0)
+# source: docs/PLAN.md print rule 7 (text debossed 0.4 mm on vertical faces)
+DEBOSS_DEPTH = 0.4
+FONT = Path(__file__).resolve().parents[1] / "assets" / "fonts" / "IBMPlexMono-Bold.ttf"
 
 
 def as_part(shape: object) -> bd.Part:
@@ -35,6 +39,22 @@ def as_part(shape: object) -> bd.Part:
     if isinstance(shape, bd.Solid | bd.Compound):
         return cast(bd.Part, bd.Part() + shape)
     raise TypeError(f"expected a 3D shape, got {type(shape).__name__}")
+
+
+# --------------------------------------------------------------------------- profiles
+
+Points = list[tuple[float, float]] | tuple[tuple[float, float], ...]
+
+
+def xz_face(points: Points) -> bd.Face:
+    """Polygon drawn in the XZ plane (local x → X, local y → Z), as a single face."""
+    return (bd.Plane.XZ * bd.Polygon(*points, align=None)).faces()[0]
+
+
+def revolve_rz(points: Points, arc_deg: float = 360.0, start_deg: float = 0.0) -> bd.Part:
+    """Revolve an (r, z) polygon about +Z, starting at `start_deg` for `arc_deg`."""
+    solid = bd.revolve(xz_face(points), bd.Axis.Z, revolution_arc=arc_deg)
+    return as_part(bd.Rot(0, 0, start_deg) * solid)
 
 
 # --------------------------------------------------------------------------- holes
@@ -175,6 +195,57 @@ def bed_chamfer(part: bd.Shape, size: float | None = None, z: float = 0.0) -> bd
         return as_part(part.chamfer(c, None, edges))  # pyright: ignore[reportAttributeAccessIssue]
     except Exception as exc:  # OCC raises StdFail_NotDone et al.
         raise ValueError(f"bed chamfer {c} mm failed on {len(edges)} edges: {exc}") from exc
+
+
+# --------------------------------------------------------------------------- labels
+
+
+@dataclass(frozen=True)
+class ExemptRegion:
+    """An axis-aligned box where a design rule allows what a check would otherwise flag.
+
+    Checks named in `checks` ignore geometry lying entirely inside the box.
+    """
+
+    lo: tuple[float, float, float]
+    hi: tuple[float, float, float]
+    checks: frozenset[str]
+    reason: str
+
+    def contains_box(self, lo: bd.Vector, hi: bd.Vector, tol: float = 1e-3) -> bool:
+        return all(
+            a - tol <= p and q <= b + tol
+            for a, b, p, q in zip(
+                self.lo, self.hi, (lo.X, lo.Y, lo.Z), (hi.X, hi.Y, hi.Z), strict=True
+            )
+        )
+
+
+def deboss_text(
+    text: str,
+    size: float,
+    face_plane: bd.Plane,
+    depth: float = DEBOSS_DEPTH,
+) -> tuple[bd.Part, ExemptRegion]:
+    """Cutter for text debossed into a vertical face, plus its rule-7 exempt region.
+
+    `face_plane` lies on the face with its z_dir pointing *out* of the part and its x_dir
+    along the reading direction. Glyph ceilings 0.4 mm deep print fine (one line width), and
+    glyph strokes are not structural walls, so overhang and min_wall skip the label region.
+    """
+    if abs(face_plane.z_dir.Z) > 1e-6:
+        raise ValueError("rule 7: debossed text goes on vertical faces only")
+    glyphs = bd.Text(text, size, font_path=str(FONT))
+    cutter = as_part(bd.extrude(face_plane * glyphs, amount=-depth - 0.05))
+    cutter = as_part(bd.Pos(*(face_plane.z_dir * 0.05)) * cutter)
+    bb = cutter.bounding_box()
+    region = ExemptRegion(
+        (bb.min.X, bb.min.Y, bb.min.Z),
+        (bb.max.X, bb.max.Y, bb.max.Z),
+        frozenset({"overhang", "min_wall"}),
+        f"rule 7: '{text}' debossed {depth} mm on a vertical face",
+    )
+    return cutter, region
 
 
 # --------------------------------------------------------------------------- clamps

@@ -2,17 +2,20 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import build123d as bd
 
+from bikeparts.core.features import ExemptRegion
+from bikeparts.core.materials import MaterialName
 from bikeparts.fixtures import FIXTURES
 from bikeparts.parts import PartSpec, discover
 
 REPO = Path(__file__).resolve().parents[1]
 OUT = REPO / "out"
+PARTS_SRC = REPO / "src" / "bikeparts" / "parts"
 
 
 @dataclass
@@ -24,6 +27,12 @@ class Target:
     preset: str
     body: str
     shape: bd.Part
+    material: MaterialName = MaterialName.PETG
+    qty: int = 1
+    optional: bool = False
+    exempt: tuple[ExemptRegion, ...] = ()
+    slicer: Mapping[str, str] = field(default_factory=dict)
+    note: str = ""
     exceptions: dict[str, str] = field(default_factory=dict)
     expect_fail: frozenset[str] | None = None  # fixtures only
 
@@ -37,11 +46,31 @@ class Target:
         return base / self.slug / self.preset
 
 
+def preset_targets(spec: PartSpec, preset: str) -> list[Target]:
+    bodies = spec.build(spec.presets[preset])
+    return [
+        Target(
+            "parts",
+            spec.slug,
+            preset,
+            name,
+            b.shape,
+            material=b.material,
+            qty=b.qty,
+            optional=b.optional,
+            exempt=b.exempt,
+            slicer=dict(b.slicer),
+            note=b.note,
+            exceptions=dict(spec.exceptions),
+        )
+        for name, b in bodies.items()
+    ]
+
+
 def part_targets(specs: list[PartSpec]) -> Iterator[Target]:
     for spec in specs:
-        for preset, params in spec.presets.items():
-            for body, shape in spec.build(params).items():
-                yield Target("parts", spec.slug, preset, body, shape, dict(spec.exceptions))
+        for preset in spec.presets:
+            yield from preset_targets(spec, preset)
 
 
 def fixture_targets(names: list[str]) -> Iterator[Target]:
