@@ -15,6 +15,7 @@ Plan and design rules: [docs/PLAN.md](docs/PLAN.md) · agent conventions: [CLAUD
 
 | Part | What it does | Sizes | Material | Status |
 |---|---|---|---|---|
+| [Calibration coupon](src/bikeparts/parts/calibration_coupon/) | **Print this first.** Measures your printer's real fits; `uv run calibrate` writes them into every part | 1 | PETG | Gate 1 ✅ |
 | [Ghost tracker spacer](src/bikeparts/parts/tracker_spacer/) | Hides an AirTag between frame and bottle cage, sealed until both come off | tubes Ø28.6–50 | PETG (+ optional TPU pad) | Gate 1 ✅ · Gate 3 pending |
 | [Vault bar-end plug](src/bikeparts/parts/bar_end_vault/) | Wedge-locking bar plug with a twist-lock core for a tubeless kit | bar ID 17–21.5 (2 sizes) | PETG | Gate 1 ✅ · Gates 2–3 pending |
 | [Shop dummy hub](src/bikeparts/parts/dummy_hub/) | Shipping spacer + chain keeper: holds the dropouts, spins the chain with the wheel out | 8 axle standards | PETG | Gate 1 ✅ · Gate 3 pending |
@@ -28,7 +29,7 @@ Choices and deviations from the plan: [docs/DECISIONS.md](docs/DECISIONS.md).
 | Phase | | |
 |---|---|---|
 | 0 | Scaffold: core modules, check suite, CI | ✅ |
-| 1 | Calibration coupon | deferred (defaults used) |
+| 1 | Calibration coupon + `uv run calibrate` | ✅ |
 | 2+ | Ghost tracker spacer, Vault bar-end plug, Shop dummy hub | ✅ designed, Gate 1 |
 | 3 | FEA pipeline | — |
 | 4–5 | Remaining parts | — |
@@ -44,6 +45,7 @@ uv run check --fixture overhang_cube_60
 uv run build                           # out/<part>/<preset>/<body>.{step,stl,3mf,svg}
                                        # + slices (PrusaSlicer) and regenerates part READMEs
 uv run check                           # Gate 1 on every part
+uv run calibrate --help                # write your coupon results into core/tolerances.py
 ```
 
 ## Gate 1 checks

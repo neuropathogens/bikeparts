@@ -113,7 +113,8 @@ def insert_boss(
     """Vertical cylindrical boss on Z = 0 with a heat-set insert pocket opening at the top.
 
     The pocket is vertical so the insert is pressed along +Z; the wall around it is at least
-    MIN_INSERT_WALL (structural rule 3).
+    MIN_INSERT_WALL (structural rule 3). If you merge the boss into another body, re-cut the
+    pocket with `insert_pocket` afterwards — the union refills it where the bodies overlap.
     """
     ins = INSERTS[insert] if isinstance(insert, str) else insert
     od = ins.boss_diameter if outer_d is None else outer_d
@@ -132,6 +133,23 @@ def insert_boss(
         align=(bd.Align.CENTER, bd.Align.CENTER, bd.Align.MIN),
     )
     return as_part(boss - pocket)
+
+
+def insert_pocket(insert: HeatSetInsert | Thread) -> bd.Part:
+    """Cutter for a heat-set insert pocket whose mouth is at Z = 0, going down.
+
+    Cut this *after* merging a boss into a larger body: a union refills any pocket that
+    `insert_boss` already cut wherever the other body overlaps it.
+    """
+    ins = INSERTS[insert] if isinstance(insert, str) else insert
+    return as_part(
+        bd.Pos(0, 0, -ins.pocket_depth)
+        * bd.Cylinder(
+            ins.pocket_diameter / 2,
+            ins.pocket_depth + 1.0,
+            align=(bd.Align.CENTER, bd.Align.CENTER, bd.Align.MIN),
+        )
+    )
 
 
 def captive_nut_pocket(

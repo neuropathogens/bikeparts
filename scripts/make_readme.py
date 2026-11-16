@@ -202,6 +202,9 @@ def render(spec: PartSpec, results: dict[str, list[BodyResult]]) -> str:
             out.append(f"| {name} | {method} | {crit} | pending |")
         out.append("")
 
+    if spec.extra_readme:
+        out += [spec.extra_readme.rstrip(), ""]
+
     if spec.assumptions:
         out += ["## Assumptions to verify", ""]
         out += [f"- {a}" for a in spec.assumptions]

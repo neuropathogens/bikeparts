@@ -71,6 +71,8 @@ class PartSpec:
     assumptions: tuple[str, ...] = ()
     # Gate 3 tests that apply (keys of GATE3_TESTS in docs/PLAN.md's validation table)
     gate3: tuple[str, ...] = ()
+    # Markdown appended to the generated README (e.g. a measurement form)
+    extra_readme: str = ""
 
     @property
     def default_preset(self) -> str:

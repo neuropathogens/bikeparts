@@ -69,6 +69,8 @@ Glass-transition figures are approximate typical values from memory; check the d
   assert zero overlap where they must clear and overlap where they must stop).
   `PartSpec.build(params)` returns `{body name: PrintBody}` — one printable solid on Z = 0 with
   its material, quantity, slicer overrides and any rule-7 label `ExemptRegion`s.
+- Merging an `insert_boss` into another body refills its pocket: re-cut with
+  `features.insert_pocket()` after the union, and probe the pocket in a fit test.
 - Labels: `features.deboss_text()` returns the cutter and its `ExemptRegion`; pass the region
   in `PrintBody.exempt` so overhang/min_wall skip only the glyphs.
 - Decisions and deviations from the plan go in `docs/DECISIONS.md`.
@@ -86,7 +88,8 @@ uv run check                    # Gate 1 on every part preset + parametric sweep
 uv run check --part <slug>      # one part
 uv run check --fixture <name>   # a known-good/bad fixture (src/bikeparts/fixtures.py)
 uv run check --self-test        # every fixture fails exactly its expected checks
-uv run build [--part <slug>]    # out/<part>/<preset>/<body>.step|stl|3mf|svg
+uv run build [--part <slug>]    # out/<part>/<preset>/<body>.step|stl|3mf|svg + READMEs
+uv run calibrate --dry-run ...  # coupon results → core/tolerances.py
 uv run ruff check . && uv run ruff format --check . && uv run pyright
 ```
 
